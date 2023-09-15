@@ -21,3 +21,4 @@ struct WifiConfig {
 WifiConfig* getWifiConfig();
 
 void vTaskCreateWiFiServer(void* p);
+void webConfigureWiFi(AsyncWebServerRequest* request);

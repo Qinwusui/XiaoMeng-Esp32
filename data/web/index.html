@@ -4,28 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Import style -->
-    <link rel="stylesheet" href="//unpkg.com/element-plus/dist/index.css" />
+    <link rel="stylesheet" href="./index.css" />
     <!-- Import Vue 3 -->
-    <script src="//unpkg.com/vue@3"></script>
+    <script src="./vue.global.js"></script>
     <!-- Import component library -->
-    <script src="//unpkg.com/element-plus"></script>
+    <script src="./index.full.js"></script>
+    <script src="axios.min.js"></script>
     <title>WiFi配网</title>
 </head>
 
 <body>
-    <div id="app">{{ message }}</div>
-</body>
-<script>
-    const { createApp, ref } = Vue()
+    <div id="app">
+        <div class="common-layout">
+            <el-container>
+                <el-header>
+                    <el-page-header :icon="null">
+                        <template #content>
+                            <span class="text-large font-600 mr-3"> Esp32-WiFi配网 </span>
+                        </template>
+                        <div class="mt-4 text-sm font-bold">
 
-    createApp({
-        setup() {
-            const message = ref('Hell2312o vue!')
-            return {
-                message
-            }
-        }
-    }).mount('#app')
-</script>
+                        </div>
+                    </el-page-header>
+                </el-header>
+                <el-main>
+                    <el-form :model="wifiForm" label-width="120px">
+                        <el-form-item label="WiFi SSID">
+                            <el-input v-model="wifiForm.ssid" />
+                        </el-form-item>
+                        <el-form-item label="WiFi密码">
+                            <el-input v-model="wifiForm.pwd" />
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button type="primary" @click="onSubmit">提交</el-button>
+                            <el-button type="danger" @click="onClear">清空</el-button>
+                        </el-form-item>
+                    </el-form>
+                </el-main>
+            </el-container>
+        </div>
+    </div>
+</body>
+<script src="./main.js" setup></script>
+
 
 </html>

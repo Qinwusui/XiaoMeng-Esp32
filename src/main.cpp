@@ -96,7 +96,20 @@ void vTaskCreateWiFiServer(void* p) {
     WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 16);
 
     server.serveStatic("/" , LittleFS , "/web/").setDefaultFile("index.html");
-
+    server.on("/wifi/submit" , HTTP_POST , webConfigureWiFi);
     server.begin();
     vTaskDelete(NULL);
 }
+//WiFi配置接口
+//POST ssid,pwd
+void webConfigureWiFi(AsyncWebServerRequest* request) {
+    if (request->hasParam("ssid" , true)) {
+        Serial.println(request->getParam("ssid" , true)->value());
+    }
+    if (request->hasParam("pwd" , true)) {
+        Serial.println(request->getParam("pwd" , true)->value());
+    }
+
+    request->send(200);
+}
+
