@@ -40,7 +40,9 @@ void setup() {
 
 }
 
-void loop() {}
+void loop() {
+    vTaskDelete(NULL);
+}
 
 void vTaskConnectWifi(void* param) {
     WifiConfig* config = getWifiConfig();
@@ -91,7 +93,7 @@ void vTaskCreateWiFiServer(void* p) {
     IPAddress gateWay = IPAddress(192 , 168 , 1 , 1);
     IPAddress subNet = IPAddress(255 , 255 , 255 , 0);
     WiFi.softAPConfig(localIp , gateWay , subNet);
-    WiFi.softAP("me" , "qinsansui233" , 12 , 0 , 16);
+    WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 16);
 
     server.serveStatic("/" , LittleFS , "/web/").setDefaultFile("index.html");
 
