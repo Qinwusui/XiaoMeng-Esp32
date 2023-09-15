@@ -96,9 +96,8 @@ void vTaskCreateWiFiAP(void* p) {
     IPAddress gateWay = IPAddress(192 , 168 , 1 , 1);
     IPAddress subNet = IPAddress(255 , 255 , 255 , 0);
     WiFi.softAPConfig(localIp , gateWay , subNet);
+    WiFi.setSleep(false);
     WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 16);
-
-
     vTaskDelete(NULL);
 }
 //WiFi配置接口
