@@ -13,8 +13,6 @@ void setup() {
         Serial.println("打开SPIFFS失败");
         return;
     }
-    pinMode(21 , OUTPUT);
-    pinMode(19 , OUTPUT);
     Serial.println("创建任务中...");
     if (xTaskCreate(
         vTaskConnectWifi ,
