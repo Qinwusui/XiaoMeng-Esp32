@@ -1,7 +1,7 @@
 #include <main.h>
 //变量定义区
 TaskHandle_t connectWifiTask = NULL;
-TaskHandle_t createWiFiServer = NULL;
+TaskHandle_t createWiFiAP = NULL;
 AsyncWebServer server(80);
 void setup() {
     Serial.begin(115200);
@@ -13,6 +13,9 @@ void setup() {
         Serial.println("打开SPIFFS失败");
         return;
     }
+    server.serveStatic("/" , LittleFS , "/web/").setDefaultFile("index.html");
+    server.on("/wifi/submit" , HTTP_POST , webConfigureWiFi);
+    server.begin();
     Serial.println("创建任务中...");
     if (xTaskCreate(
         vTaskConnectWifi ,
@@ -27,14 +30,14 @@ void setup() {
     }
 
     if (xTaskCreate(
-        vTaskCreateWiFiServer ,
+        vTaskCreateWiFiAP ,
         "createWiFiServer" ,
         10240 ,
         NULL ,
         1 ,
-        &createWiFiServer
+        &createWiFiAP
     ) != pdPASS) {
-        vTaskDelete(createWiFiServer);
+        vTaskDelete(createWiFiAP);
         Serial.println("创建web服务器任务失败");
     }
 
@@ -48,12 +51,12 @@ void vTaskConnectWifi(void* param) {
     WifiConfig* config = getWifiConfig();
     if (config == NULL) {
         xTaskCreate(
-            vTaskCreateWiFiServer ,
+            vTaskCreateWiFiAP ,
             "createWiFiServer" ,
             10240 ,
             NULL ,
             1 ,
-            &createWiFiServer
+            &createWiFiAP
         );
         vTaskDelete(connectWifiTask);
     }
@@ -86,7 +89,7 @@ WifiConfig* getWifiConfig() {
     config->PWD = pwd;
     return config;
 }
-void vTaskCreateWiFiServer(void* p) {
+void vTaskCreateWiFiAP(void* p) {
     WiFi.mode(WIFI_MODE_APSTA);
 
     IPAddress localIp = IPAddress(192 , 168 , 1 , 1);
@@ -95,9 +98,7 @@ void vTaskCreateWiFiServer(void* p) {
     WiFi.softAPConfig(localIp , gateWay , subNet);
     WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 16);
 
-    server.serveStatic("/" , LittleFS , "/web/").setDefaultFile("index.html");
-    server.on("/wifi/submit" , HTTP_POST , webConfigureWiFi);
-    server.begin();
+
     vTaskDelete(NULL);
 }
 //WiFi配置接口
