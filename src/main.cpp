@@ -3,6 +3,7 @@
 TaskHandle_t connectWifiTask = NULL;
 TaskHandle_t createWiFiAP = NULL;
 AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
 void setup() {
     Serial.begin(115200);
     Serial.flush();
@@ -15,6 +16,8 @@ void setup() {
     }
     server.serveStatic("/" , LittleFS , "/web/").setDefaultFile("index.html");
     server.on("/wifi/submit" , HTTP_POST , webConfigureWiFi);
+    ws.onEvent(onEventHandle);
+    // server.addHandler(&ws);
     server.begin();
     Serial.println("创建任务中...");
     if (xTaskCreate(
@@ -113,3 +116,24 @@ void webConfigureWiFi(AsyncWebServerRequest* request) {
     request->send(200);
 }
 
+//Websocket服务
+void onEventHandle(AsyncWebSocket* server , AsyncWebSocketClient* client , AwsEventType type , void* arg , uint8_t* data , size_t len) {
+    switch (type) {
+    case WS_EVT_CONNECT:
+    {
+        Serial.printf("ws[%s][%u] 已连接\n" , server->url() , client->id());
+    }
+    break;
+    case WS_EVT_DATA:
+    {
+        AwsFrameInfo* info = (AwsFrameInfo*) arg;
+        Serial.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: " , server->url() , client->id() , info->num , (info->message_opcode == WS_TEXT) ? "text" : "binary" , info->index , info->index + len);
+        data [len] = 0;
+        Serial.printf("%s\n" , (char*) data);
+        client->printf("recived%s\n" , (char*) data);
+    }
+    break;
+    default:
+    break;
+    }
+}
