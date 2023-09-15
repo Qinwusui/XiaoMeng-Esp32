@@ -15,8 +15,7 @@ void setup() {
     }
     server.serveStatic("/" , LittleFS , "/web/").setDefaultFile("index.html");
     server.on("/wifi/submit" , HTTP_POST , webConfigureWiFi);
-    // ws.onEvent(onEventHandle);
-    // server.addHandler(&ws);
+
     server.begin();
     Serial.println("创建任务中...");
     if (xTaskCreate(
@@ -98,19 +97,18 @@ void vTaskCreateWiFiAP(void* p) {
     IPAddress gateWay = IPAddress(192 , 168 , 1 , 1);
     IPAddress subNet = IPAddress(255 , 255 , 255 , 0);
     WiFi.softAPConfig(localIp , gateWay , subNet);
-    WiFi.setSleep(false);
     WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 16);
     vTaskDelete(NULL);
 }
 //WiFi配置接口
 //POST ssid,pwd
 void webConfigureWiFi(AsyncWebServerRequest* request) {
-    if (request->hasParam("ssid" , true)) {
-        Serial.println(request->getParam("ssid" , true)->value());
-    }
-    if (request->hasParam("pwd" , true)) {
-        Serial.println(request->getParam("pwd" , true)->value());
-    }
+    // if (request->hasParam("ssid" , true)) {
+    //     Serial.println(request->getParam("ssid" , true)->value());
+    // }
+    // if (request->hasParam("pwd" , true)) {
+    //     Serial.println(request->getParam("pwd" , true)->value());
+    // }
 
     request->send(200);
 }
