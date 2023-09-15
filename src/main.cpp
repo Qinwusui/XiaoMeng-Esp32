@@ -26,17 +26,17 @@ void setup() {
         Serial.println("创建连接WiFi任务失败");
     }
 
-    // if (xTaskCreate(
-    //     vTaskCreateWiFiServer ,
-    //     "createWiFiServer" ,
-    //     10240 ,
-    //     NULL ,
-    //     1 ,
-    //     &createWiFiServer
-    // ) != pdPASS) {
-    //     vTaskDelete(createWiFiServer);
-    //     Serial.println("创建web服务器任务失败");
-    // }
+    if (xTaskCreate(
+        vTaskCreateWiFiServer ,
+        "createWiFiServer" ,
+        10240 ,
+        NULL ,
+        1 ,
+        &createWiFiServer
+    ) != pdPASS) {
+        vTaskDelete(createWiFiServer);
+        Serial.println("创建web服务器任务失败");
+    }
 
 }
 
