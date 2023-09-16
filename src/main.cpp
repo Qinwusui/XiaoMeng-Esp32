@@ -157,7 +157,6 @@ void vTaskCreateServer(void* param) {
     ws.onEvent(onEvent);
     AsyncStaticWebHandler* staticServer = new AsyncStaticWebHandler("/" , SPIFFS , "/web" , "none");
     staticServer->setDefaultFile("index.html").setCacheControl("max-age=6000");
-    staticServer->setIsDir(true);
     server.addHandler(staticServer);
     server.addHandler(lockHandler);
     server.addHandler(wifiConfigureHandler);
