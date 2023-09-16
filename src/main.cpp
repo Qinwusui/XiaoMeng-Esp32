@@ -178,10 +178,10 @@ void vTaskConnectWifi(void* param) {
     deserializeJson(config , *content);
     String ssid = (config) ["ssid"].as<String>();
     String pwd = (config) ["pwd"].as<String>();
-
+    WiFi.begin(ssid , pwd);
     Serial.printf("正在连接到%s" , ssid);
     while (WiFi.status() != WL_CONNECTED) {
-        WiFi.begin(ssid , pwd);
+        
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
