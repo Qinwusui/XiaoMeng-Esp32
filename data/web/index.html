@@ -9,8 +9,9 @@
     <script src="./vue.global.js"></script>
     <!-- Import component library -->
     <script src="./index.full.js"></script>
-    <script src="axios.min.js"></script>
-    <title>WiFi配网</title>
+    <script src="./axios.min.js"></script>
+    <!-- <script src="./qs.min.js"></script> -->
+    <title>ESP32</title>
 </head>
 
 <body>
@@ -18,28 +19,37 @@
         <div class="common-layout">
             <el-container>
                 <el-header>
-                    <el-page-header :icon="null">
-                        <template #content>
-                            <span class="text-large font-600 mr-3"> Esp32-WiFi配网 </span>
-                        </template>
-                        <div class="mt-4 text-sm font-bold">
+                    <el-row justify="space-between">
+                        <el-text tag="b" size="large" :span="6">ESP32</el-text>
+                        <el-row :span="6" justify="space-between">
+                            <el-text type="primary" plain>电动车</el-text>
 
-                        </div>
-                    </el-page-header>
+                            <el-button type="primary" @click="lockBike">开锁</el-button>
+                            <el-button type="danger" @click="unlockBike">关锁</el-button>
+                        </el-row>
+                    </el-row>
+                    <el-divider />
+
                 </el-header>
                 <el-main>
-                    <el-form :model="wifiForm" label-width="120px">
-                        <el-form-item label="WiFi SSID">
-                            <el-input v-model="wifiForm.ssid" />
-                        </el-form-item>
-                        <el-form-item label="WiFi密码">
-                            <el-input v-model="wifiForm.pwd" />
-                        </el-form-item>
-                        <el-form-item>
-                            <el-button type="primary" @click="onSubmit">提交</el-button>
-                            <el-button type="danger" @click="onClear">清空</el-button>
-                        </el-form-item>
-                    </el-form>
+                    <el-scrollbar height="400px">
+                        <el-form :model="wifiForm" label-width="120px">
+                            <el-form-item label="WiFi SSID">
+                                <el-input v-model="wifiForm.ssid" />
+                            </el-form-item>
+                            <el-form-item label="WiFi密码">
+                                <el-input v-model="wifiForm.pwd" />
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="primary" @click="onSubmit">提交</el-button>
+                                <el-button type="danger" @click="onClear">清空</el-button>
+                            </el-form-item>
+
+                        </el-form>
+
+                        <el-divider />
+                    </el-scrollbar>
+
                 </el-main>
             </el-container>
         </div>
