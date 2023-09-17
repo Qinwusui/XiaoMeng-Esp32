@@ -31,6 +31,8 @@ void setup() {
     createConnectWiFiTask();
     createAPTask();
     createServerTask();
+    WiFi.scanNetworks(true);
+
 }
 //创建WiFi状态监听任务
 void createWiFiStateTask() {
@@ -145,8 +147,34 @@ void vTaskCreateServer(void* param) {
     AsyncCallbackJsonWebHandler* lockHandler = new AsyncCallbackJsonWebHandler("/bike/lock" , lockBike);
 
     ws.onEvent(onEvent);
-    AsyncStaticWebHandler* staticServer = new AsyncStaticWebHandler("/" , SPIFFS , "/web" , "none");
-    staticServer->setDefaultFile("index.html").setCacheControl("max-age=6000");
+    AsyncStaticWebHandler* staticServer = new AsyncStaticWebHandler("/" , SPIFFS , "/web" , "max-age=6000");
+    staticServer->setDefaultFile("index.html");
+    server.on("/startScan" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        Serial.println("开启WiFi扫描");
+        DynamicJsonDocument* json = new DynamicJsonDocument(1024);
+
+
+        vTaskDelay(3000 / portTICK_PERIOD_MS);
+        if (int i = WiFi.scanComplete();i > 0) {
+            for (int j = 0; j < i; j++) {
+                std::string  ssid = WiFi.SSID(j).c_str();
+                int rssi = WiFi.RSSI(j);
+                int enc = WiFi.encryptionType(j);
+                (*json) ["name"] = ssid;
+                (*json) ["strength"] = rssi;
+                (*json) ["encryption"] = enc;
+                Serial.printf("WiFi:%s" , ssid.c_str());
+
+            }
+        }
+
+        Serial.println("WiFi扫描结束");
+        std::string* jsonStr = new std::string();
+        serializeJson(*json , *jsonStr);
+        request->send(200 , "application/json" , (*jsonStr).c_str());
+        delete json;
+        delete jsonStr;
+        });
     server.addHandler(staticServer);
     server.addHandler(lockHandler);
     server.addHandler(wifiConfigureHandler);
@@ -176,7 +204,7 @@ void vTaskConnectWifi(void* param) {
     }
 
 
-    Serial.printf("已连接到%s\n" , ssid);
+    Serial.printf("已连接到%s：IP:%s\n" , ssid , WiFi.localIP().toString().c_str());
     Serial.flush();
     createWiFiStateTask();
     createTimeUpdateTask();
@@ -242,9 +270,7 @@ void lockBike(AsyncWebServerRequest* request , JsonVariant& json) {
         digitalWrite(16 , LOW);
 
     }
-
     request->send(200);
-
 }
 //获取WiFi配置
 String* getWifiConfig() {
@@ -299,17 +325,14 @@ void createWiFiScanerTask() {
 }
 //WiFi扫描任务
 void vTaskWiFiScanner(void* p) {
-    while (1) {
-        Serial.println("开启WiFi扫描");
-        int i = WiFi.scanNetworks(false);
-        for (int j = 0; j < i; j++) {
-            String ssid = WiFi.SSID(j);
-            uint32_t rssi = WiFi.RSSI(j);
-            Serial.printf("SSID:%s RSSI:%d\n" , ssid.c_str() , rssi);
-        }
-        Serial.println("WiFi扫描结束");
+    Serial.println("开启WiFi扫描");
+    int i = WiFi.scanNetworks(false);
+    for (int j = 0; j < i; j++) {
+        String ssid = WiFi.SSID(j);
+        uint32_t rssi = WiFi.RSSI(j);
+        Serial.printf("SSID:%s RSSI:%d\n" , ssid.c_str() , rssi);
     }
-
+    Serial.println("WiFi扫描结束");
     vTaskDelete(NULL);
 
 }
