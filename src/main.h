@@ -14,10 +14,7 @@
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
 #include <NTPClient.h>
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
+
 //常量配置区
 const String wifiPath = "/wifi.txt";
 
@@ -30,9 +27,9 @@ void createAPTask();
 void createServerTask();
 void createWiFiStateTask();
 void createTimeUpdateTask();
-void createBLEScanTask();
+void createWiFiScanerTask();
 
-void vTaskBLEScaner(void* p);
+void vTaskWiFiScanner(void* p);
 void vTaskTimeUpdate(void* p);
 void vTaskConnectWifi(void* param);
 void vTaskCreateWiFiAP(void* p);

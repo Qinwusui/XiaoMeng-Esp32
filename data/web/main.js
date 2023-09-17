@@ -1,13 +1,25 @@
 
 const { createApp, ref, reactive } = Vue
+const { ElNotification } = ElementPlus
 var wifiForm = ref({
     ssid: '',
     pwd: '',
 })
+const loadingWiFiList = ref(false)
+var wifiList = ref([])
+var currentWiFi = ref({})
+
+var showWiFiConnectDialog = ref(false)
+const wantConnectWiFiInfo = ref({})
 const app = createApp({
     data() {
         return {
-            wifiForm: wifiForm
+            wifiForm: wifiForm,
+            loadingWiFiList: loadingWiFiList,
+            wifiList: wifiList,
+            currentWiFi: currentWiFi,
+            showWiFiConnectDialog: showWiFiConnectDialog,
+            wantConnectWiFiInfo: wantConnectWiFiInfo,
         }
     },
     methods: {
@@ -34,8 +46,9 @@ const app = createApp({
         toWiFiPage() {
             window.location.href = '/wifi'
         },
-        onSubmit() {
-            axios.post('/wifi/submit', wifiForm.value, {
+        onSubmit(wifi) {
+            showWiFiConnectDialog = false
+            axios.post('/wifi/submit', wifi.value, {
                 headers: {
                     'Content-Type': 'application/json'
                 }
@@ -63,8 +76,8 @@ const app = createApp({
                 })
             })
         },
-        onClear() {
-            wifiForm.value = {}
+        onClear(wifi) {
+            wifi.value = {}
         },
         toBikeManagerPage() {
             window.location.href = '/bike/manager'
@@ -76,7 +89,37 @@ const app = createApp({
                 duration: 5
             })
             // window.location.href = '/battery/manager'
-        }
+        },
+        runWiFiScanner() {
+            loadingWiFiList.value = true
+            axios.get('/startScan').then((res) => {
+                loadingWiFiList.value = false
+                console.log("执行到这")
+
+                console.log(JSON.parse(res))
+                wifiList.value = JSON.parse(res)
+                ElNotification({
+                    title: '提示',
+                    message: JSON.parse(res),
+                    duration: 2000
+                })
+            })
+        },
+        selectSingle(wifi) {
+            currentWiFi.value = wifi
+        },
+        inputWiFiInfo() {
+            if (currentWiFi.value.ssid == undefined) {
+                ElNotification({
+                    title: '提示',
+                    message: '你还没有选择WiFi',
+                    duration: 2000
+                })
+            } else {
+                showWiFiConnectDialog.value = true
+            }
+        },
+
     }
 
 })

@@ -5,22 +5,12 @@ TaskHandle_t createWiFiAP = NULL;
 TaskHandle_t createServer = NULL;
 TaskHandle_t createWiFiListener = NULL;
 TaskHandle_t createTimeUpdate = NULL;
-TaskHandle_t createBLEScaner = NULL;
+TaskHandle_t createWiFiScanner = NULL;
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP , "ntp.ntsc.ac.cn"); // NTP客户端
-BLEScan* pBLEScan;
-class BLEDeviceCallBack : public BLEAdvertisedDeviceCallbacks {
-    void onResult(BLEAdvertisedDevice advertisedDevice) {
 
-        if (advertisedDevice.haveName()) {
-            Serial.printf("发现设备: %s\n" , advertisedDevice.getName().c_str());
-
-        }
-
-    }
-};
 
 
 void setup() {
@@ -41,6 +31,8 @@ void setup() {
     createConnectWiFiTask();
     createAPTask();
     createServerTask();
+    WiFi.scanNetworks(true);
+
 }
 //创建WiFi状态监听任务
 void createWiFiStateTask() {
@@ -75,7 +67,7 @@ void createServerTask() {
     if (xTaskCreate(
         vTaskCreateServer ,
         "createServer" ,
-        5120 ,
+        20480 ,
         NULL ,
         1 ,
         &createServer
@@ -84,7 +76,6 @@ void createServerTask() {
         Serial.println("创建web服务器任务失败");
 
     }
-    Serial.printf("createServerTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(createServer));
 
 }
 //创建热点任务
@@ -155,13 +146,44 @@ void vTaskCreateServer(void* param) {
     AsyncCallbackJsonWebHandler* lockHandler = new AsyncCallbackJsonWebHandler("/bike/lock" , lockBike);
 
     ws.onEvent(onEvent);
-    AsyncStaticWebHandler* staticServer = new AsyncStaticWebHandler("/" , SPIFFS , "/web" , "none");
-    staticServer->setDefaultFile("index.html").setCacheControl("max-age=6000");
+    AsyncStaticWebHandler* staticServer = new AsyncStaticWebHandler("/" , SPIFFS , "/web" , "max-age=6000");
+    staticServer->setDefaultFile("index.html");
+    server.on("/startScan" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        // AsyncWebServerResponse* response = request->beginResponse(200);
+        // response->addHeader("Access-Control-Allow-Credentials" , "true");
+        // response->addHeader("Access-Control-Allow-Methods" , "*");
+        // response->addHeader("Access-Control-Allow-Origin" , "http://127.0.0.1");
+    
+        Serial.println("开启WiFi扫描");
+        DynamicJsonDocument json(80 * 30 + 20);
+        int i = WiFi.scanComplete();
+
+        if (i > 0) {
+            for (int j = 0; j < i; j++) {
+                DynamicJsonDocument item(80);
+
+                std::string  ssid = WiFi.SSID(j).c_str();
+                int rssi = WiFi.RSSI(j);
+                std::string enc = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?"开放": "加密";
+                (item) ["name"] = ssid;
+                (item) ["strength"] = rssi;
+                (item) ["encryption"] = enc;
+                Serial.printf("WiFi:%s\n" , ssid.c_str());
+                json [j] = (item);
+            }
+        }
+
+        Serial.println("WiFi扫描结束");
+        std::string jsonStr = std::string();
+        serializeJson(json , jsonStr);
+        request->send(200 , "application/json" , (jsonStr).c_str());
+        });
     server.addHandler(staticServer);
     server.addHandler(lockHandler);
     server.addHandler(wifiConfigureHandler);
     server.addHandler(&ws);
     server.begin();
+
     vTaskDelete(NULL);
 }
 
@@ -178,19 +200,19 @@ void vTaskConnectWifi(void* param) {
     deserializeJson(config , *content);
     String ssid = (config) ["ssid"].as<String>();
     String pwd = (config) ["pwd"].as<String>();
-
+    WiFi.begin(ssid , pwd);
     Serial.printf("正在连接到%s" , ssid);
     while (WiFi.status() != WL_CONNECTED) {
-        WiFi.begin(ssid , pwd);
+
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
 
-    Serial.printf("已连接到%s\n" , ssid);
+    Serial.printf("已连接到%s：IP:%s\n" , ssid , WiFi.localIP().toString().c_str());
     Serial.flush();
     createWiFiStateTask();
     createTimeUpdateTask();
-    createBLEScanTask();
+    createWiFiScanerTask();
 
 
     vTaskDelete(NULL);
@@ -252,9 +274,7 @@ void lockBike(AsyncWebServerRequest* request , JsonVariant& json) {
         digitalWrite(16 , LOW);
 
     }
-
     request->send(200);
-
 }
 //获取WiFi配置
 String* getWifiConfig() {
@@ -287,70 +307,36 @@ void saveWiFiConfig(String content) {
 
     createConnectWiFiTask();
 }
-//创建蓝牙扫描任务
-void createBLEScanTask() {
-    if (createBLEScaner != NULL) {
-        Serial.println("已经创建了蓝牙扫描任务");
+//创建WiFi扫描任务
+void createWiFiScanerTask() {
+    if (createWiFiScanner != NULL) {
+        Serial.println("已经创建了WiFi扫描任务");
         return;
     }
 
     if (xTaskCreate(
-        vTaskBLEScaner ,
-        "BLEScaner" ,
+        vTaskWiFiScanner ,
+        "WiFiScanner" ,
         5120 ,
         NULL ,
         0 ,
-        &createBLEScaner
+        &createWiFiScanner
     ) != pdPASS) {
-        vTaskDelete(createBLEScaner);
-        Serial.println("创建蓝牙扫描任务失败");
+        vTaskDelete(createWiFiScanner);
+        Serial.println("创建WiFi扫描任务失败");
     }
 
 }
-//蓝牙扫描任务
-void vTaskBLEScaner(void* p) {
-    Serial.println("开启蓝牙扫描");
-    BLEDevice::init("ESP32");
-    pBLEScan = BLEDevice::getScan();
-    pBLEScan->setActiveScan(true);
-    pBLEScan->setInterval(0x50);
-    pBLEScan->setWindow(0x10);
-
-    int i = 0;
-    while (1) {
-        i++;
-        bool hasWatch = false;
-        Serial.printf("执行一次扫描%d\n" , i);
-        taskYIELD();
-        BLEScanResults found = pBLEScan->start(8);
-        taskYIELD();
-        int count = found.getCount();
-        for (int i = 0; i < count; i++) {
-            BLEAdvertisedDevice device = found.getDevice(i);
-            std::string name = device.getName().c_str();
-            std::string deviceMac = device.getAddress().toString().c_str();
-            std::string useName = "Mi_Watch";
-            std::string mac = "70:58:96:08:a6:4e";
-            if (deviceMac == mac) {
-                Serial.println("有小米手表");
-                hasWatch = true;
-                break;
-            } else {
-                Serial.printf("Device:%s %d\n" , device.getAddress().toString().c_str() , device.getRSSI());
-            }
-        }
-        if (hasWatch) {
-            digitalWrite(16 , HIGH);
-        } else {
-            digitalWrite(16 , LOW);
-        }
-
-        Serial.printf("一次扫描结束%d\n" , i);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-
+//WiFi扫描任务
+void vTaskWiFiScanner(void* p) {
+    Serial.println("开启WiFi扫描");
+    int i = WiFi.scanNetworks(false);
+    for (int j = 0; j < i; j++) {
+        String ssid = WiFi.SSID(j);
+        uint32_t rssi = WiFi.RSSI(j);
+        Serial.printf("SSID:%s RSSI:%d\n" , ssid.c_str() , rssi);
     }
-    Serial.println("蓝牙扫描结束");
+    Serial.println("WiFi扫描结束");
     vTaskDelete(NULL);
 
 }
