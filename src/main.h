@@ -27,9 +27,7 @@ void createAPTask();
 void createServerTask();
 void createWiFiStateTask();
 void createTimeUpdateTask();
-void createWiFiScanerTask();
 
-void vTaskWiFiScanner(void* p);
 void vTaskTimeUpdate(void* p);
 void vTaskConnectWifi(void* param);
 void vTaskCreateWiFiAP(void* p);

@@ -26,12 +26,12 @@ void setup() {
     //继电器引脚
     pinMode(16 , OUTPUT);
 
-    WiFi.mode(WIFI_MODE_APSTA);
+    WiFi.mode(WIFI_MODE_MAX);
+
     Serial.println("创建任务中...");
     createConnectWiFiTask();
     createAPTask();
     createServerTask();
-    WiFi.scanNetworks(true);
 
 }
 //创建WiFi状态监听任务
@@ -146,39 +146,94 @@ void vTaskCreateServer(void* param) {
     AsyncCallbackJsonWebHandler* lockHandler = new AsyncCallbackJsonWebHandler("/bike/lock" , lockBike);
 
     ws.onEvent(onEvent);
-    AsyncStaticWebHandler* staticServer = new AsyncStaticWebHandler("/" , SPIFFS , "/web" , "max-age=6000");
-    staticServer->setDefaultFile("index.html");
-    server.on("/startScan" , HTTP_GET , [] (AsyncWebServerRequest* request) {
-        // AsyncWebServerResponse* response = request->beginResponse(200);
-        // response->addHeader("Access-Control-Allow-Credentials" , "true");
-        // response->addHeader("Access-Control-Allow-Methods" , "*");
-        // response->addHeader("Access-Control-Allow-Origin" , "http://127.0.0.1");
-    
+    //主页
+    server.on("/" , [] (AsyncWebServerRequest* request) {
+        request->send(SPIFFS , "/web/index.html" , "text/html");
+        });
+    //WiFi扫描接口
+    server.on("/wifi/startScan" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+
         Serial.println("开启WiFi扫描");
-        DynamicJsonDocument json(80 * 30 + 20);
-        int i = WiFi.scanComplete();
+        DynamicJsonDocument* json = new DynamicJsonDocument(80 * 30 + 20);
+        int i = WiFi.scanNetworks(false , false , false , 15U);
 
         if (i > 0) {
             for (int j = 0; j < i; j++) {
-                DynamicJsonDocument item(80);
+                DynamicJsonDocument* item = new DynamicJsonDocument(80);
 
                 std::string  ssid = WiFi.SSID(j).c_str();
                 int rssi = WiFi.RSSI(j);
-                std::string enc = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?"开放": "加密";
-                (item) ["name"] = ssid;
-                (item) ["strength"] = rssi;
-                (item) ["encryption"] = enc;
+                std::string enc = (WiFi.encryptionType(j) == WIFI_AUTH_OPEN)?"开放": "加密";
+                (*item) ["name"] = ssid;
+                (*item) ["strength"] = rssi;
+                (*item) ["encryption"] = enc;
                 Serial.printf("WiFi:%s\n" , ssid.c_str());
-                json [j] = (item);
+                (*json) ["list"][j] = (*item);
             }
         }
 
         Serial.println("WiFi扫描结束");
-        std::string jsonStr = std::string();
-        serializeJson(json , jsonStr);
-        request->send(200 , "application/json" , (jsonStr).c_str());
+        WiFi.scanDelete();
+        std::string* jsonStr = new  std::string();
+        serializeJson(*json , *jsonStr);
+        AsyncWebServerResponse* response = request->beginResponse(200 , "application/json" , (*jsonStr).c_str());
+        response->addHeader("Access-Control-Allow-Credentials" , "true");
+        response->addHeader("Access-Control-Allow-Methods" , "*");
+        response->addHeader("Access-Control-Allow-Origin" , "http://127.0.0.1");
+        request->send(response);
+        free(json);
+        free(jsonStr);
         });
-    server.addHandler(staticServer);
+    //WiFi状态接口
+    server.on("/wifi/status" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        DynamicJsonDocument* json = new DynamicJsonDocument(50);
+        (*json) ["code"] = 0;
+        (*json) ["status"] = WiFi.status();
+        std::string* jsonStr = new std::string();
+        deserializeJson(*json , *jsonStr);
+        AsyncWebServerResponse* response = request->beginResponse(200 , "application/json" , (*jsonStr).c_str());
+        response->addHeader("Access-Control-Allow-Credentials" , "true");
+        response->addHeader("Access-Control-Allow-Methods" , "*");
+        response->addHeader("Access-Control-Allow-Origin" , "http://127.0.0.1");
+        request->send(response);
+        free(json);
+        free(jsonStr);
+        });
+    //axios文件获取接口
+    server.on("/axios.min.js.gz" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        AsyncWebServerResponse* response = request->beginResponse(SPIFFS , "/web/axios.min.js.gz" , "text/javascript");
+        response->addHeader("Content-Encoding" , "gzip");
+        request->send(response);
+        });
+    //vue.js文件获取接口
+    server.on("/vue.global.prod.min.js.gz" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        AsyncWebServerResponse* response = request->beginResponse(SPIFFS , "/web/vue.global.prod.min.js.gz" , "text/javascript");
+        response->addHeader("Content-Encoding" , "gzip");
+        request->send(response);
+        });
+    //elementUI.js文件获取接口
+    server.on("/index.full.min.js.gz" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        AsyncWebServerResponse* response = request->beginResponse(SPIFFS , "/web/index.full.min.js.gz" , "text/javascript");
+        response->addHeader("Content-Encoding" , "gzip");
+        request->send(response);
+        });
+    //elementUI.css文件获取接口
+    server.on("/index.min.css.gz" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        AsyncWebServerResponse* response = request->beginResponse(SPIFFS , "/web/index.min.css.gz" , "text/javascript");
+        response->addHeader("Content-Encoding" , "gzip");
+        request->send(response);
+        });
+    //main.js
+    server.on("/main.js.gz" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        AsyncWebServerResponse* response = request->beginResponse(SPIFFS , "/web/main.js.gz" , "text/javascript");
+        response->addHeader("Content-Encoding" , "gzip");
+        request->send(response);
+        });
+    server.on("/favicon.ico" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        AsyncWebServerResponse* response = request->beginResponse(SPIFFS , "/web/favicon.ico" , "image/*");
+        response->addHeader("Content-Encoding" , "gzip");
+        request->send(response);
+        });
     server.addHandler(lockHandler);
     server.addHandler(wifiConfigureHandler);
     server.addHandler(&ws);
@@ -198,7 +253,7 @@ void vTaskConnectWifi(void* param) {
     Serial.println(*content);
     DynamicJsonDocument config(200);
     deserializeJson(config , *content);
-    String ssid = (config) ["ssid"].as<String>();
+    String ssid = (config) ["name"].as<String>();
     String pwd = (config) ["pwd"].as<String>();
     WiFi.begin(ssid , pwd);
     Serial.printf("正在连接到%s" , ssid);
@@ -212,7 +267,6 @@ void vTaskConnectWifi(void* param) {
     Serial.flush();
     createWiFiStateTask();
     createTimeUpdateTask();
-    createWiFiScanerTask();
 
 
     vTaskDelete(NULL);
@@ -238,7 +292,7 @@ void vTaskCreateWiFiAP(void* p) {
     IPAddress gateWay = IPAddress(192 , 168 , 1 , 1);
     IPAddress subNet = IPAddress(255 , 255 , 255 , 0);
     WiFi.softAPConfig(localIp , gateWay , subNet);
-    WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 16);
+    WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 1);
     vTaskDelete(NULL);
 }
 
@@ -248,16 +302,21 @@ void vTaskCreateWiFiAP(void* p) {
 void webConfigureWiFi(AsyncWebServerRequest* request , JsonVariant& json) {
     DynamicJsonDocument jsonObj = json.as<JsonObject>();
     String content = jsonObj.as<String>();
+    DynamicJsonDocument* respJson = new DynamicJsonDocument(50);
     if (!content.isEmpty()) {
-        request->send(200 , "application/json" ,
-            F("{\"code\":0,\"msg\":\"配置完成\"}"));
+        (*respJson) ["code"] = 0;
+        (*respJson) ["msg"] = "配置完成，正在连接" + jsonObj ["name"].as<String>();
         saveWiFiConfig(content);
-
     } else {
-        request->send(200 , "application/json" ,
-            F("{\"code\":-1,\"msg\":\"配置信息不完全\"}"));
+        (*respJson) ["code"] = -1;
+        (*respJson) ["msg"] = "配置信息缺失";
     }
+    String* respStr = new String();
+    deserializeJson(*respJson , *respStr);
+    request->send(200 , "application/json" , *respStr);
 
+    free(respJson);
+    free(respStr);
 
 }
 void lockBike(AsyncWebServerRequest* request , JsonVariant& json) {
@@ -306,39 +365,6 @@ void saveWiFiConfig(String content) {
     f.close();
 
     createConnectWiFiTask();
-}
-//创建WiFi扫描任务
-void createWiFiScanerTask() {
-    if (createWiFiScanner != NULL) {
-        Serial.println("已经创建了WiFi扫描任务");
-        return;
-    }
-
-    if (xTaskCreate(
-        vTaskWiFiScanner ,
-        "WiFiScanner" ,
-        5120 ,
-        NULL ,
-        0 ,
-        &createWiFiScanner
-    ) != pdPASS) {
-        vTaskDelete(createWiFiScanner);
-        Serial.println("创建WiFi扫描任务失败");
-    }
-
-}
-//WiFi扫描任务
-void vTaskWiFiScanner(void* p) {
-    Serial.println("开启WiFi扫描");
-    int i = WiFi.scanNetworks(false);
-    for (int j = 0; j < i; j++) {
-        String ssid = WiFi.SSID(j);
-        uint32_t rssi = WiFi.RSSI(j);
-        Serial.printf("SSID:%s RSSI:%d\n" , ssid.c_str() , rssi);
-    }
-    Serial.println("WiFi扫描结束");
-    vTaskDelete(NULL);
-
 }
 void loop() {
     vTaskDelete(NULL);
