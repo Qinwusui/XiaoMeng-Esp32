@@ -299,14 +299,17 @@ void createWiFiScanerTask() {
 }
 //WiFi扫描任务
 void vTaskWiFiScanner(void* p) {
-    Serial.println("开启WiFi扫描");
-    int i = WiFi.scanNetworks(false);
-    for (int j = 0; j < i; j++) {
-        String ssid = WiFi.SSID(j);
-        uint32_t rssi = WiFi.RSSI(j);
-        Serial.printf("SSID:%s RSSI:%d\n" , ssid.c_str() , rssi);
+    while (1) {
+        Serial.println("开启WiFi扫描");
+        int i = WiFi.scanNetworks(false);
+        for (int j = 0; j < i; j++) {
+            String ssid = WiFi.SSID(j);
+            uint32_t rssi = WiFi.RSSI(j);
+            Serial.printf("SSID:%s RSSI:%d\n" , ssid.c_str() , rssi);
+        }
+        Serial.println("WiFi扫描结束");
     }
-    Serial.println("WiFi扫描结束");
+
     vTaskDelete(NULL);
 
 }
