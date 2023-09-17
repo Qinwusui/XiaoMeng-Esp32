@@ -90,11 +90,19 @@ const app = createApp({
             })
             // window.location.href = '/battery/manager'
         },
-        async runWiFiScanner() {
+        runWiFiScanner() {
             loadingWiFiList.value = true
-            await axios.get('/startScan').then((res) => {
+            axios.get('/startScan').then((res) => {
                 loadingWiFiList.value = false
-                wifiList.value = res
+                console.log("执行到这")
+
+                console.log(JSON.parse(res))
+                wifiList.value = JSON.parse(res)
+                ElNotification({
+                    title: '提示',
+                    message: JSON.parse(res),
+                    duration: 2000
+                })
             })
         },
         selectSingle(wifi) {

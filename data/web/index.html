@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Import style -->
     <link rel="stylesheet" href="./index.css" />
+
     <!-- Import Vue 3 -->
-    <script src="./vue.global.js"></script>
+    <script src="./vue.global.min.js"></script>
     <!-- Import component library -->
-    <script src="./index.full.js"></script>
+    <script src="./index.full.min.js"></script>
     <script src="./axios.min.js"></script>
     <!-- <script src="./qs.min.js"></script> -->
     <title>ESP32</title>
@@ -78,7 +79,7 @@
 
             </el-header>
             <el-main>
-                <el-table v-loading="loadingWiFiList" stripe height="250" :model="wifiList" style="width: 100%"
+                <el-table v-loading="loadingWiFiList" stripe height="250" :data="wifiList" style="width: 100%"
                     @current-change="selectSingle">
                     <el-table-column prop="name" label="WiFi名称" width="120" />
                     <el-table-column prop="strength" label="WiFi强度" width="120" />

@@ -67,7 +67,7 @@ void createServerTask() {
     if (xTaskCreate(
         vTaskCreateServer ,
         "createServer" ,
-        5120 ,
+        20480 ,
         NULL ,
         1 ,
         &createServer
@@ -76,7 +76,6 @@ void createServerTask() {
         Serial.println("创建web服务器任务失败");
 
     }
-    Serial.printf("createServerTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(createServer));
 
 }
 //创建热点任务
@@ -150,36 +149,41 @@ void vTaskCreateServer(void* param) {
     AsyncStaticWebHandler* staticServer = new AsyncStaticWebHandler("/" , SPIFFS , "/web" , "max-age=6000");
     staticServer->setDefaultFile("index.html");
     server.on("/startScan" , HTTP_GET , [] (AsyncWebServerRequest* request) {
+        // AsyncWebServerResponse* response = request->beginResponse(200);
+        // response->addHeader("Access-Control-Allow-Credentials" , "true");
+        // response->addHeader("Access-Control-Allow-Methods" , "*");
+        // response->addHeader("Access-Control-Allow-Origin" , "http://127.0.0.1");
+    
         Serial.println("开启WiFi扫描");
-        DynamicJsonDocument* json = new DynamicJsonDocument(1024);
+        DynamicJsonDocument json(80 * 30 + 20);
+        int i = WiFi.scanComplete();
 
-
-        vTaskDelay(3000 / portTICK_PERIOD_MS);
-        if (int i = WiFi.scanComplete();i > 0) {
+        if (i > 0) {
             for (int j = 0; j < i; j++) {
+                DynamicJsonDocument item(80);
+
                 std::string  ssid = WiFi.SSID(j).c_str();
                 int rssi = WiFi.RSSI(j);
-                int enc = WiFi.encryptionType(j);
-                (*json) ["name"] = ssid;
-                (*json) ["strength"] = rssi;
-                (*json) ["encryption"] = enc;
-                Serial.printf("WiFi:%s" , ssid.c_str());
-
+                std::string enc = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?"开放": "加密";
+                (item) ["name"] = ssid;
+                (item) ["strength"] = rssi;
+                (item) ["encryption"] = enc;
+                Serial.printf("WiFi:%s\n" , ssid.c_str());
+                json [j] = (item);
             }
         }
 
         Serial.println("WiFi扫描结束");
-        std::string* jsonStr = new std::string();
-        serializeJson(*json , *jsonStr);
-        request->send(200 , "application/json" , (*jsonStr).c_str());
-        delete json;
-        delete jsonStr;
+        std::string jsonStr = std::string();
+        serializeJson(json , jsonStr);
+        request->send(200 , "application/json" , (jsonStr).c_str());
         });
     server.addHandler(staticServer);
     server.addHandler(lockHandler);
     server.addHandler(wifiConfigureHandler);
     server.addHandler(&ws);
     server.begin();
+
     vTaskDelete(NULL);
 }
 
