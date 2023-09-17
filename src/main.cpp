@@ -322,7 +322,7 @@ void vTaskBLEScaner(void* p) {
         bool hasWatch = false;
         Serial.printf("执行一次扫描%d\n" , i);
         taskYIELD();
-        BLEScanResults found = pBLEScan->start(5);
+        BLEScanResults found = pBLEScan->start(8);
         taskYIELD();
         int count = found.getCount();
         for (int i = 0; i < count; i++) {
