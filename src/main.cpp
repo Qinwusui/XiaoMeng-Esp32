@@ -26,8 +26,9 @@ void setup() {
     //继电器引脚
     pinMode(16 , OUTPUT);
 
-    WiFi.mode(WIFI_MODE_MAX);
-
+    WiFi.mode(WIFI_MODE_APSTA);
+    WiFi.scanNetworks(true);
+    
     Serial.println("创建任务中...");
     createConnectWiFiTask();
     createAPTask();
@@ -155,8 +156,7 @@ void vTaskCreateServer(void* param) {
 
         Serial.println("开启WiFi扫描");
         DynamicJsonDocument* json = new DynamicJsonDocument(80 * 30 + 20);
-        int i = WiFi.scanNetworks(false , false , false , 15U);
-
+        int i = WiFi.scanComplete();
         if (i > 0) {
             for (int j = 0; j < i; j++) {
                 DynamicJsonDocument* item = new DynamicJsonDocument(80);
@@ -171,9 +171,15 @@ void vTaskCreateServer(void* param) {
                 (*json) ["list"][j] = (*item);
             }
         }
+        if (i == -1) {
+            Serial.println("扫描正在进行中");
+        }
+        if (i == -2) {
+            Serial.println("扫描失败");
+        }
 
+        WiFi.scanNetworks(true);
         Serial.println("WiFi扫描结束");
-        WiFi.scanDelete();
         std::string* jsonStr = new  std::string();
         serializeJson(*json , *jsonStr);
         AsyncWebServerResponse* response = request->beginResponse(200 , "application/json" , (*jsonStr).c_str());
@@ -255,21 +261,45 @@ void vTaskConnectWifi(void* param) {
     deserializeJson(config , *content);
     String ssid = (config) ["name"].as<String>();
     String pwd = (config) ["pwd"].as<String>();
-    WiFi.begin(ssid , pwd);
     Serial.printf("正在连接到%s" , ssid);
-    while (WiFi.status() != WL_CONNECTED) {
+    //连接之前扫描一遍附近的所有WiFi，当WiFi存在时才进行连接操作，否则直接跳过连接
+    vTaskDelay(4000/portTICK_PERIOD_MS);
 
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    int i = WiFi.scanComplete();
+    for (int j = 0; j < i; j++) {
+        Serial.println(WiFi.SSID(j));
+
+        if (WiFi.SSID(j) != ssid) {
+            continue;
+        } else {
+            goto hasSSID;
+            return;
+        }
     }
+    goto notHasSSID;
+hasSSID:
+    {
+        WiFi.begin(ssid , pwd);
+        while (WiFi.status() != WL_CONNECTED) {
 
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+        Serial.printf("已连接到%s：IP:%s\n" , ssid , WiFi.localIP().toString().c_str());
+        Serial.flush();
+        createWiFiStateTask();
+        createTimeUpdateTask();
+        vTaskDelete(NULL);
 
-    Serial.printf("已连接到%s：IP:%s\n" , ssid , WiFi.localIP().toString().c_str());
-    Serial.flush();
-    createWiFiStateTask();
-    createTimeUpdateTask();
+    }
+notHasSSID:
+    {
+        Serial.println("附近无该WiFi，将结束该任务");
+        WiFi.disconnect();
+        vTaskDelete(NULL);
 
-
-    vTaskDelete(NULL);
+    }
+    Serial.println("www");
+    WiFi.scanNetworks(true);
 }
 
 
