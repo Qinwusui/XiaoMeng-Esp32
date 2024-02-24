@@ -26,11 +26,11 @@
             </el-header>
             <el-main>
                 <el-dialog v-model="showWiFiConnectDialog" title="提示" width="80%">
-                    <span>请填写<el-text>{{currentWiFi.name}}的</el-text>密码</span>
+                    <span>请填写<el-text>{{wifiForm.ssid}}的</el-text>密码</span>
                     <el-divider></el-divider>
-                    <el-form :model="currentWiFi" label-width="80px">
+                    <el-form :model="wifiForm" label-width="80px">
                         <el-form-item label="WiFi密码">
-                            <el-input v-model="currentWiFi.pwd" />
+                            <el-input v-model="wifiForm.pwd" />
                         </el-form-item>
 
 
@@ -39,8 +39,31 @@
                     <span class="dialog-footer">
                         <div>
                             <el-button @click="showWiFiConnectDialog = false">取消</el-button>
-                            <el-button type="primary" @click="onSubmit(currentWiFi)">
+                            <el-button type="primary" @click="onSubmitWiFiConfig()">
                                 连接
+                            </el-button>
+                        </div>
+                    </span>
+                </el-dialog>
+
+                <el-dialog v-model="showWeatherConfigDialog" title="提示" width="80%">
+                    <span>请填写和风天气配置信息</span>
+                    <el-divider></el-divider>
+                    <el-form :model="weatherForm" label-width="80px">
+                        <el-form-item label="ID">
+                            <el-input v-model="weatherForm.location" />
+                        </el-form-item>
+                        <el-form-item label="Key">
+                            <el-input v-model="weatherForm.key" />
+                        </el-form-item>
+
+
+                    </el-form>
+                    <span class="dialog-footer">
+                        <div>
+                            <el-button @click="showWeatherConfigDialog = false">取消</el-button>
+                            <el-button type="primary" @click="onSubmitWeatherConfig()">
+                                确认
                             </el-button>
                         </div>
                     </span>
@@ -63,8 +86,32 @@
                             <el-input v-model="wifiForm.pwd" />
                         </el-form-item>
                         <el-form-item>
-                            <el-button type="primary" @click="onSubmit(wifiForm)">提交</el-button>
-                            <el-button type="danger" @click="onClear">清空</el-button>
+                            <el-button type="primary" @click="onSubmitWiFiConfig()">提交</el-button>
+                            <el-button type="danger" @click="onClearWiFiConfig()">清空</el-button>
+                        </el-form-item>
+
+                    </el-form>
+                </div>
+            </el-main>
+            <el-divider></el-divider>
+            <el-header>
+
+                <el-text tag="b" size="large">和风天气</el-text>
+
+            </el-header>
+            <el-main>
+                <el-text tag="b" size="large">配置信息填写</el-text>
+                <div>
+                    <el-form :model="weatherForm" label-width="80px">
+                        <el-form-item label="ID">
+                            <el-input v-model="weatherForm.location" />
+                        </el-form-item>
+                        <el-form-item label="Key">
+                            <el-input v-model="weatherForm.key" />
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button type="primary" @click="onSubmitWeatherConfig()">提交</el-button>
+                            <el-button type="danger" @click="onClearWeatherConfig()">清空</el-button>
                         </el-form-item>
 
                     </el-form>
@@ -81,7 +128,7 @@
             <el-main>
                 <el-table ref="singleTableRef" v-loading="loadingWiFiList" stripe height="250" :data="wifiList"
                     style="width: 100%" @current-change="selectSingle">
-                    <el-table-column prop="name" label="WiFi名称" style="width:30%"></el-table-column>
+                    <el-table-column prop="ssid" label="WiFi名称" style="width:30%"></el-table-column>
                     <el-table-column prop="strength" label="WiFi强度" style="width:30%"></el-table-column>
                     <el-table-column prop="encryption" label="加密方式" style="width:30%"></el-table-column>
                 </el-table>
