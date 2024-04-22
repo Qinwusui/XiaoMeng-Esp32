@@ -420,7 +420,7 @@ hasSSID:
 
 
         Serial.println(WiFi.RSSI());
-        //
+        //      
         if (WiFi.RSSI() > -20) {
 
         }
