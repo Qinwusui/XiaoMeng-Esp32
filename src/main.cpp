@@ -15,7 +15,7 @@ AsyncWebSocket ws("/ws");
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP , "ntp.ntsc.ac.cn"); // NTP客户端
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C  u8g2(U8G2_R0 , /* reset=*/ U8X8_PIN_NONE , 26 , 27);
-
+TinyGPSPlus gps;
 void setup() {
     Serial.begin(115200);
     Serial.flush();
@@ -57,14 +57,20 @@ void createScreenInitialTask() {
 
 }
 void vTaskReadGPS(void* params) {
-    Serial1.begin(9600 , SERIAL_8N1 , 18 , 19);
+    Serial2.begin(9600);
 
     while (1) {
         if (Serial2.available() > 0) {
-            String gpsData = Serial2.readString();
-            wa.locationData = gpsData.c_str();
+            Serial.println("获取地理位置数据");
+            if (gps.encode(Serial2.read())) {
+                if (gps.location.isValid()) {
+                    Serial.print(gps.location.lat() , 6);
+                    Serial.print(F(","));
+                    Serial.print(gps.location.lng() , 6);
+                }
 
-            Serial.println("获取到的定位数据：" + gpsData);
+
+            }
         }
         Serial.println("没有获取到数据");
         wa.locationData = String("没有获取到数据" + timeClient.getFormattedTime()).c_str();
@@ -106,6 +112,7 @@ void draw() {
     u8g2.drawUTF8(128 - width , 12 , timeClient.getFormattedTime().c_str());
     //绘制温度
     u8g2.drawUTF8(0 , 12 , String(wa.text + wa.tmp + "°C").c_str());
+    u8g2.drawUTF8(0 , 24 , String(wa.windDir + wa.windScale + "级").c_str());
     //绘制地理位置
     u8g2.drawUTF8(0 , 63 , wa.locationData.c_str());
     u8g2.sendBuffer();
@@ -453,7 +460,7 @@ void vTaskCreateWeatherInfo(void* p) {
 void initWeather(String key , String location) {
     Serial.printf("initWeather查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(initWeatherHandler));
 
-    Serial.println("开始请求天气" + key + location);
+    Serial.println("开始请求天气\n" + key + location);
     WiFiClientSecure* secure = new WiFiClientSecure();
     secure->setInsecure();
     HTTPClient* https = new HTTPClient();
@@ -483,19 +490,21 @@ void initWeather(String key , String location) {
                 size ,
                 outbuf ,
                 out_size);
-            std::string s((char*) outbuf);
-            String payload = s.c_str();
-            DynamicJsonDocument* json = new DynamicJsonDocument(payload.length() * 2);
-            deserializeJson(*json , payload);
+            String* payload = new String((char*) outbuf);
+            DynamicJsonDocument* json = new DynamicJsonDocument(payload->length() * 2);
+            deserializeJson(*json , *payload);
             JsonObject obj = (*json).as<JsonObject>();
 
             wa.code = obj ["code"].as<String>();
             wa.tmp = obj ["now"]["temp"].as<String>();
             wa.humidity = obj ["now"]["humidity"].as<String>();
             wa.text = obj ["now"]["text"].as<String>();
-            u8g2.drawUTF8(0 , 12 , wa.text.c_str());
+            wa.windDir = obj ["now"]["windDir"].as<String>();
+            wa.windScale = obj ["now"]["windScale"].as<String>();
+            Serial.println("获取到天气:" + *payload);
             delete json;
             delete outbuf;
+            delete payload;
         }
     }
 

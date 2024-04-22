@@ -26,6 +26,7 @@
 
 #include <U8g2lib.h>
 #include <HardwareSerial.h>
+#include <TinyGPS++.h>
 
 //结构体
 struct WeatherInfo {
@@ -34,6 +35,8 @@ struct WeatherInfo {
     String humidity;
     String text;
     String locationData;
+    String windDir;
+    String windScale;
 };
 WeatherInfo wa;
 //常量配置区
