@@ -131,10 +131,8 @@ void createWiFiStateTask() {
         vTaskCreateWiFiStateListener ,
         "createWiFiStateListener" ,
         2048 ,
-        2048 ,
         NULL ,
         1 ,
-        &createWiFiListenerHandler
         &createWiFiListenerHandler
     ) != pdPASS) {
         Serial.println("创建WiFi状态监听器失败");
@@ -164,10 +162,9 @@ void createServerTask() {
         vTaskCreateServer ,
         "createServer" ,
         40960 ,
-        40960 ,
+
         NULL ,
         1 ,
-        &createServerHandler
         &createServerHandler
     ) != pdPASS) {
         vTaskDelete(createServerHandler);
@@ -206,7 +203,6 @@ void createConnectWiFiTask() {
         NULL ,
         1 ,
         &connectWifiHandler
-        &connectWifiHandler
     ) != pdPASS) {
         vTaskDelete(connectWifiHandler);
         vTaskDelete(connectWifiHandler);
@@ -224,7 +220,6 @@ void createTimeUpdateTask() {
         2048 ,
         NULL ,
         1 ,
-        &createTimeUpdateHandler
         &createTimeUpdateHandler
     ) != pdPASS) {
         Serial.println("创建时间更新服务失败");
@@ -387,12 +382,11 @@ void vTaskConnectWifi(void* param) {
     Serial.printf("正在连接到%s\n" , ssid);
     //连接之前扫描一遍附近的所有WiFi，当WiFi存在时才进行连接操作，否则直接跳过连接
     vTaskDelay(4000 / portTICK_PERIOD_MS);
-reload:
-    {
-        int i = WiFi.scanComplete();
-        for (int j = 0; j < i; j++) {
-            Serial.println(WiFi.SSID(j) + ":" + WiFi.RSSI(j));
-    vTaskDelay(4000 / portTICK_PERIOD_MS);
+    int i = WiFi.scanComplete();
+    for (int j = 0; j < i; j++) {
+        Serial.println(WiFi.SSID(j) + ":" + WiFi.RSSI(j));
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
+    }
 reload:
     {
         int i = WiFi.scanComplete();
@@ -431,8 +425,6 @@ hasSSID:
 
         }
         String s = WiFi.localIP().toString();
-
-
         Serial.printf("已连接到%s：IP:%s\n" , ssid , WiFi.localIP().toString().c_str());
         Serial.flush();
         createWiFiStateTask();
@@ -442,19 +434,11 @@ hasSSID:
         vTaskDelete(NULL);
 
     }
-
-
-
-
     WiFi.scanNetworks(true);
-
-
 }
 
-
 //Ws事件处理
-void onEvent(AsyncWebSocket* server , AsyncWebSocketClient* client , AwsEventType type ,
-    void* arg , uint8_t* data , size_t len) {
+void onEvent(AsyncWebSocket* server , AsyncWebSocketClient* client , AwsEventType type , void* arg , uint8_t* data , size_t len) {
     switch (type) {
     case WS_CONNECTED:
     Serial.printf("客户端%s:%u已连接\n" , client->remoteIP().toString() , client->remotePort());
