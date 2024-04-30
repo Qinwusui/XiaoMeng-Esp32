@@ -16,6 +16,7 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP , "ntp.ntsc.ac.cn"); // NTP客户端
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C  u8g2(U8G2_R0 , /* reset=*/ U8X8_PIN_NONE , 26 , 27);
 TinyGPSPlus gps;
+HardwareSerial hs(2);
 void setup() {
     Serial.begin(115200);
     Serial.flush();
@@ -24,12 +25,8 @@ void setup() {
     Serial.println("Wellcome");
     if (!SPIFFS.begin()) {
         Serial.println("打开Fs失败");
-        Serial.println("打开Fs失败");
         return;
     }
-    u8g2.begin();
-    u8g2.setFont(u8g2_font_wqy12_t_gb2312);
-    u8g2.enableUTF8Print();
     u8g2.begin();
     u8g2.setFont(u8g2_font_wqy12_t_gb2312);
     u8g2.enableUTF8Print();
@@ -40,8 +37,6 @@ void setup() {
     Serial.println("Initialized...");
     createScreenInitialTask();
 
-    Serial.println("Initialized...");
-    createScreenInitialTask();
     createConnectWiFiTask();
     createAPTask();
     createServerTask();
@@ -64,20 +59,13 @@ void createScreenInitialTask() {
 
 }
 void vTaskReadGPS(void* params) {
-    Serial2.begin(9600);
+    hs.begin(9600 , SERIAL_8N1 , 16 , 17);
 
     while (1) {
-        if (Serial2.available() > 0) {
+        if (hs.available() > 0) {
             Serial.println("获取地理位置数据");
-            if (gps.encode(Serial2.read())) {
-                if (gps.location.isValid()) {
-                    Serial.print(gps.location.lat() , 6);
-                    Serial.print(F(","));
-                    Serial.print(gps.location.lng() , 6);
-                }
-
-
-            }
+            String s = hs.readString();
+            Serial.println(s);
         }
         Serial.println("没有获取到数据");
         wa.locationData = String("没有获取到数据" + timeClient.getFormattedTime()).c_str();
@@ -107,9 +95,6 @@ void vTaskScreenInitial(void* params) {
         draw();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-
-
-
     vTaskDelete(NULL);
 }
 void draw() {
@@ -136,7 +121,6 @@ void createWiFiStateTask() {
         &createWiFiListenerHandler
     ) != pdPASS) {
         Serial.println("创建WiFi状态监听器失败");
-        vTaskDelete(createWiFiListenerHandler);
         vTaskDelete(createWiFiListenerHandler);
     }
 
@@ -168,12 +152,9 @@ void createServerTask() {
         &createServerHandler
     ) != pdPASS) {
         vTaskDelete(createServerHandler);
-        vTaskDelete(createServerHandler);
         Serial.println("创建web服务器任务失败");
 
     }
-    Serial.printf("createServerTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(createServerHandler));
-
     Serial.printf("createServerTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(createServerHandler));
 
 
@@ -205,10 +186,8 @@ void createConnectWiFiTask() {
         &connectWifiHandler
     ) != pdPASS) {
         vTaskDelete(connectWifiHandler);
-        vTaskDelete(connectWifiHandler);
         Serial.println("创建连接WiFi任务失败");
     }
-    Serial.printf("createConnectWiFiTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(connectWifiHandler));
     Serial.printf("createConnectWiFiTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(connectWifiHandler));
 
 }
@@ -224,9 +203,7 @@ void createTimeUpdateTask() {
     ) != pdPASS) {
         Serial.println("创建时间更新服务失败");
         vTaskDelete(createTimeUpdateHandler);
-        vTaskDelete(createTimeUpdateHandler);
     }
-    Serial.printf("createTimeUpdateTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(createTimeUpdateHandler));
     Serial.printf("createTimeUpdateTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(createTimeUpdateHandler));
 
 }
@@ -252,7 +229,6 @@ void vTaskCreateServer(void* param) {
     AsyncCallbackJsonWebHandler* wifiConfigureHandler = new AsyncCallbackJsonWebHandler("/wifi/submit" , webConfigureWiFi);
     AsyncCallbackJsonWebHandler* lockHandler = new AsyncCallbackJsonWebHandler("/bike/lock" , lockBike);
     AsyncCallbackJsonWebHandler* weatcherHandler = new AsyncCallbackJsonWebHandler("/weather/submit" , configureWeather);
-    AsyncCallbackJsonWebHandler* weatcherHandler = new AsyncCallbackJsonWebHandler("/weather/submit" , configureWeather);
     ws.onEvent(onEvent);
     //主页
     server.on("/" , [] (AsyncWebServerRequest* request) {
@@ -271,7 +247,6 @@ void vTaskCreateServer(void* param) {
                 std::string  ssid = WiFi.SSID(j).c_str();
                 int rssi = WiFi.RSSI(j);
                 std::string enc = (WiFi.encryptionType(j) == WIFI_AUTH_OPEN)?"开放": "加密";
-                (*item) ["ssid"] = ssid;
                 (*item) ["ssid"] = ssid;
                 (*item) ["strength"] = rssi;
                 (*item) ["encryption"] = enc;
@@ -297,8 +272,6 @@ void vTaskCreateServer(void* param) {
         request->send(response);
         vPortFree(json);
         vPortFree(jsonStr);
-        vPortFree(json);
-        vPortFree(jsonStr);
         });
     //WiFi状态接口
     server.on("/wifi/status" , HTTP_GET , [] (AsyncWebServerRequest* request) {
@@ -312,8 +285,6 @@ void vTaskCreateServer(void* param) {
         response->addHeader("Access-Control-Allow-Methods" , "*");
         response->addHeader("Access-Control-Allow-Origin" , "http://127.0.0.1");
         request->send(response);
-        delete json;
-        delete jsonStr;
         delete json;
         delete jsonStr;
         });
@@ -355,11 +326,8 @@ void vTaskCreateServer(void* param) {
     server.addHandler(lockHandler);
     server.addHandler(wifiConfigureHandler);
     server.addHandler(weatcherHandler);
-    server.addHandler(weatcherHandler);
     server.addHandler(&ws);
     server.begin();
-
-
 
     vTaskDelete(NULL);
 }
@@ -376,9 +344,7 @@ void vTaskConnectWifi(void* param) {
     DynamicJsonDocument config(200);
     deserializeJson(config , *content);
     String ssid = (config) ["ssid"].as<String>();
-    String ssid = (config) ["ssid"].as<String>();
     String pwd = (config) ["pwd"].as<String>();
-    Serial.printf("正在连接到%s\n" , ssid);
     Serial.printf("正在连接到%s\n" , ssid);
     //连接之前扫描一遍附近的所有WiFi，当WiFi存在时才进行连接操作，否则直接跳过连接
     vTaskDelay(4000 / portTICK_PERIOD_MS);
@@ -416,9 +382,6 @@ hasSSID:
         if (WiFi.RSSI() > -20) {
 
         }
-        String s = WiFi.localIP().toString();
-
-
         Serial.println(WiFi.RSSI());
         //      
         if (WiFi.RSSI() > -20) {
@@ -429,7 +392,6 @@ hasSSID:
         Serial.flush();
         createWiFiStateTask();
         createTimeUpdateTask();
-        createGetWeatherTask();
         createGetWeatherTask();
         vTaskDelete(NULL);
 
@@ -457,43 +419,8 @@ void vTaskCreateWiFiAP(void* p) {
     WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 2);
     vTaskDelete(NULL);
 }
-void createGetWeatherTask() {
-    if (xTaskCreate(
-        vTaskCreateWeatherInfo ,
-        "getWeather" ,
-        20480 ,
-        NULL ,
-        1 ,
-        &initWeatherHandler
-    ) != pdPASS) {
-        Serial.println("获取天气信息失败");
-        vTaskDelete(initWeatherHandler);
-    }
 
-}
-void vTaskCreateWeatherInfo(void* p) {
-    String* info = getWeatherConfig();
-    if (info == NULL) {
-        Serial.println("天气配置信息为空");
 
-        vTaskDelete(NULL);
-        return;
-    }
-    Serial.println(*info);
-    DynamicJsonDocument jsonObj(200);
-    deserializeJson(jsonObj , *info);
-    delete info;
-    String key = jsonObj ["key"].as<String>();
-    String location = jsonObj ["location"].as<String>();
-    while (1) {
-        initWeather(key , location);
-        //每30分钟更新一次
-        vTaskDelay(1000 * 60 * 30 / portTICK_PERIOD_MS);
-    }
-
-    WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 2);
-    vTaskDelete(NULL);
-}
 void createGetWeatherTask() {
     if (xTaskCreate(
         vTaskCreateWeatherInfo ,
@@ -593,7 +520,6 @@ void webConfigureWiFi(AsyncWebServerRequest* request , JsonVariant& json) {
     DynamicJsonDocument jsonObj = json.as<JsonObject>();
     String content = jsonObj.as<String>();
     DynamicJsonDocument* respJson = new DynamicJsonDocument(100);
-    DynamicJsonDocument* respJson = new DynamicJsonDocument(100);
     if (!content.isEmpty()) {
         (*respJson) ["code"] = 0;
         (*respJson) ["msg"] = "配置完成，正在连接" + jsonObj ["name"].as<String>();
@@ -607,8 +533,6 @@ void webConfigureWiFi(AsyncWebServerRequest* request , JsonVariant& json) {
     request->send(200 , "application/json" , *respStr);
     delete respJson;
     delete respStr;
-    delete respJson;
-    delete respStr;
 }
 void lockBike(AsyncWebServerRequest* request , JsonVariant& json) {
     DynamicJsonDocument jsonObj = json.as<JsonObject>();
@@ -619,7 +543,6 @@ void lockBike(AsyncWebServerRequest* request , JsonVariant& json) {
     }
     bool needLock = jsonObj ["needLock"].as<bool>();
     Serial.println("needLock" + String(needLock));
-    Serial.println("needLock" + String(needLock));
     if (needLock) {
         // digitalWrite(16 , HIGH);
         // digitalWrite(16 , HIGH);
@@ -629,29 +552,6 @@ void lockBike(AsyncWebServerRequest* request , JsonVariant& json) {
 
     }
     request->send(200);
-}
-void configureWeather(AsyncWebServerRequest* request , JsonVariant& json) {
-    DynamicJsonDocument jsonObj = json.as<JsonObject>();
-    DynamicJsonDocument* respJson = new DynamicJsonDocument(100);
-    String key = jsonObj ["key"].as<String>();
-    String location = jsonObj ["location"].as<String>();
-    String content = jsonObj.as<String>();
-    if (key.isEmpty() || location.isEmpty()) {
-        (*respJson) ["code"] = -1;
-        (*respJson) ["msg"] = "配置信息不完整";
-    } else {
-        (*respJson) ["code"] = 0;
-        (*respJson) ["msg"] = "写入配置成功";
-        saveWeatherConfig(content);
-        Serial.println("读取到的天气配置" + content);
-        createGetWeatherTask();
-    }
-    String* s = new String();
-    deserializeJson(*respJson , *s);
-    request->send(200 , "application/json" , *s);
-    delete s;
-    delete respJson;
-
 }
 void configureWeather(AsyncWebServerRequest* request , JsonVariant& json) {
     DynamicJsonDocument jsonObj = json.as<JsonObject>();
@@ -740,40 +640,7 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask ,
     signed char* pcTaskName) {
     Serial.printf("任务%s出错！\n" , pcTaskName);
 }
-String* getWeatherConfig() {
-    File f = SPIFFS.open(weatherConfigPath , "r");
-    if (!f) {
-        Serial.println("获取天气配置失败");
-        f.close();
-        return NULL;
-    }
-    String* content = new String();
-    *content = f.readString();
-    f.close();
-    if (content->isEmpty()) {
-        Serial.println("天气配置为空");
-        return NULL;
-    }
-    return content;
 
-}
-//保存天气接口配置
-void saveWeatherConfig(String content) {
-    File f = SPIFFS.open(weatherConfigPath , "w+" , true);
-    if (!f) {
-        Serial.println("不能创建文件");
-        return;
-    }
-    Serial.println("写入天气信息:" + content);
-    f.print(content);
-    f.flush();
-    f.close();
-}
-void vApplicationStackOverflowHook(TaskHandle_t xTask ,
-    signed char* pcTaskName) {
-    Serial.printf("任务%s出错！\n" , pcTaskName);
-}
 void loop() {
     vTaskDelete(NULL);
 }
-
