@@ -16,7 +16,7 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP , "ntp.ntsc.ac.cn"); // NTP客户端
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C  u8g2(U8G2_R0 , /* reset=*/ U8X8_PIN_NONE , 26 , 27);
 TinyGPSPlus gps;
-HardwareSerial hs(2);
+HardwareSerial gpsPort(2);
 void setup() {
     Serial.begin(115200);
     Serial.flush();
@@ -59,16 +59,24 @@ void createScreenInitialTask() {
 
 }
 void vTaskReadGPS(void* params) {
-    hs.begin(9600 , SERIAL_8N1 , 16 , 17);
+    gpsPort.begin(9600);
 
     while (1) {
-        if (hs.available() > 0) {
-            Serial.println("获取地理位置数据");
-            String s = hs.readString();
-            Serial.println(s);
+        if (gpsPort.available() > 0) {
+            String s = gpsPort.readStringUntil('\n');
+            if (gps.encode(*s.c_str())) {
+                if (gps.location.isValid()) {
+                    Serial.println(gps.location.lat() , gps.location.lng());
+                }
+
+            }
+            ;
+
+        } else {
+            Serial.println("没有获取到数据");
+            wa.locationData = String("没有获取到数据" + timeClient.getFormattedTime()).c_str();
         }
-        Serial.println("没有获取到数据");
-        wa.locationData = String("没有获取到数据" + timeClient.getFormattedTime()).c_str();
+
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     }
@@ -83,7 +91,7 @@ void createReadGPSTask() {
         NULL ,
         1 ,
         &readGPSHandler) != pdPASS) {
-
+        vTaskDelete(readGPSHandler);
     }
     Serial.println("创建获取GPS任务");
 
