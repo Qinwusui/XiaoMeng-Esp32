@@ -6,19 +6,19 @@ TaskHandle_t createServerHandler = NULL;
 TaskHandle_t createWiFiListenerHandler = NULL;
 TaskHandle_t createTimeUpdateHandler = NULL;
 TaskHandle_t createWiFiScannerHandler = NULL;
-TaskHandle_t createIRReceiverHandler = NULL;
 TaskHandle_t initScreenHandler = NULL;
 TaskHandle_t initWeatherHandler = NULL;
 TaskHandle_t readGPSHandler = NULL;
+TaskHandle_t readXiaoXiaoMengSerialHandler = NULL;
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP , "ntp.ntsc.ac.cn"); // NTP客户端
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C  u8g2(U8G2_R0 , /* reset=*/ U8X8_PIN_NONE , 26 , 27);
-TinyGPSPlus gps;
-HardwareSerial gpsPort(2);
+HardwareSerial xxm(1);
 void setup() {
     Serial.begin(115200);
+    xxm.begin(9600 , SERIAL_8N1 , 17 , 18);
+
     Serial.flush();
     Serial.flush();
     Serial.flush();
@@ -27,97 +27,44 @@ void setup() {
         Serial.println("打开Fs失败");
         return;
     }
-    u8g2.begin();
-    u8g2.setFont(u8g2_font_wqy12_t_gb2312);
-    u8g2.enableUTF8Print();
 
     WiFi.mode(WIFI_MODE_APSTA);
     WiFi.scanNetworks(true);
 
     Serial.println("Initialized...");
-    createScreenInitialTask();
 
     createConnectWiFiTask();
     createAPTask();
     createServerTask();
-    createReadGPSTask();
+    createXiaoXiaoMengSerialTask();
 }
-//创建一个屏幕初始化任务
-void createScreenInitialTask() {
+//小小萌串口监听
+void createXiaoXiaoMengSerialTask() {
     if (xTaskCreate(
-        vTaskScreenInitial ,
-        "initScreen" ,
+        vTaskCreateXiaoXiaoMengSerialListener ,
+        "createXiaoXiaoMengSerialTask" ,
         2048 ,
         NULL ,
         1 ,
-        &initScreenHandler
+        &readXiaoXiaoMengSerialHandler
     ) != pdPASS) {
-        Serial.println("初始化屏幕显示失败");
-        vTaskDelete(initScreenHandler);
+        Serial.println("创建小小萌串口监听失败");
     }
-    Serial.printf("createScreenInitialTask查看实际的堆栈使用量%d\n" , uxTaskGetStackHighWaterMark(initScreenHandler));
 
 }
-void vTaskReadGPS(void* params) {
-    gpsPort.begin(9600);
-
+//小小萌串口监听
+void vTaskCreateXiaoXiaoMengSerialListener(void* p) {
+    Serial.println("启动小小萌串口监听");
     while (1) {
-        if (gpsPort.available() > 0) {
-            String s = gpsPort.readStringUntil('\n');
-            if (gps.encode(*s.c_str())) {
-                if (gps.location.isValid()) {
-                    Serial.println(gps.location.lat() , gps.location.lng());
-                }
-
-            }
-            ;
-
-        } else {
-            Serial.println("没有获取到数据");
-            wa.locationData = String("没有获取到数据" + timeClient.getFormattedTime()).c_str();
+        if (xxm.available()) {
+            String s = xxm.readStringUntil('\n');
+            Serial.println(s);
         }
 
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     }
     vTaskDelete(NULL);
-
 }
-void createReadGPSTask() {
-    if (xTaskCreate(
-        vTaskReadGPS ,
-        "readGPS" ,
-        2048 ,
-        NULL ,
-        1 ,
-        &readGPSHandler) != pdPASS) {
-        vTaskDelete(readGPSHandler);
-    }
-    Serial.println("创建获取GPS任务");
-
-}
-//屏幕初始化
-void vTaskScreenInitial(void* params) {
-
-    while (1) {
-        draw();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-    vTaskDelete(NULL);
-}
-void draw() {
-    int width = u8g2.getUTF8Width(timeClient.getFormattedTime().c_str());
-    u8g2.clearBuffer();
-    //绘制时间
-    u8g2.drawUTF8(128 - width , 12 , timeClient.getFormattedTime().c_str());
-    //绘制温度
-    u8g2.drawUTF8(0 , 12 , String(wa.text + wa.tmp + "°C").c_str());
-    u8g2.drawUTF8(0 , 24 , String(wa.windDir + wa.windScale + "级").c_str());
-    //绘制地理位置
-    u8g2.drawUTF8(0 , 63 , wa.locationData.c_str());
-    u8g2.sendBuffer();
-}
-
 //创建WiFi状态监听任务
 void createWiFiStateTask() {
     if (xTaskCreate(
@@ -370,6 +317,8 @@ reload:
             if (WiFi.SSID(j) != ssid) {
                 continue;
             } else {
+                Serial.printf("找到了%s 开始连接\n" , ssid);
+
                 goto hasSSID;
                 return;
             }
@@ -385,16 +334,9 @@ hasSSID:
 
             vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
-        Serial.println(WiFi.RSSI());
-        //
-        if (WiFi.RSSI() > -20) {
 
-        }
         Serial.println(WiFi.RSSI());
-        //      
-        if (WiFi.RSSI() > -20) {
 
-        }
         String s = WiFi.localIP().toString();
         Serial.printf("已连接到%s：IP:%s\n" , ssid , WiFi.localIP().toString().c_str());
         Serial.flush();
@@ -424,7 +366,7 @@ void vTaskCreateWiFiAP(void* p) {
     IPAddress gateWay = IPAddress(192 , 168 , 1 , 1);
     IPAddress subNet = IPAddress(255 , 255 , 255 , 0);
     WiFi.softAPConfig(localIp , gateWay , subNet);
-    WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0 , 2);
+    WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0);
     vTaskDelete(NULL);
 }
 

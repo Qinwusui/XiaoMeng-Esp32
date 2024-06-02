@@ -15,18 +15,13 @@
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
 #include <NTPClient.h>
-#include <img.h>
 #include <sys/time.h>
 #include<time.h>
 #include <Wire.h>
 
-// #include <SSD1306Wire.h>
-// #include <OLEDDisplayUi.h>
 #include <HTTPClient.h>
 
-#include <U8g2lib.h>
 #include <HardwareSerial.h>
-#include <TinyGPS++.h>
 
 //结构体
 struct WeatherInfo {
@@ -52,12 +47,8 @@ void createAPTask();
 void createServerTask();
 void createWiFiStateTask();
 void createTimeUpdateTask();
-void createScreenInitialTask();
 void createGetWeatherTask();
-void createReadGPSTask();
-//多个屏幕绘制的方法
-
-void draw();
+void createXiaoXiaoMengSerialTask();
 
 void vTaskTimeUpdate(void* p);
 void vTaskConnectWifi(void* param);
@@ -66,7 +57,7 @@ void vTaskCreateServer(void* param);
 void vTaskCreateWiFiStateListener(void* p);
 void vTaskScreenInitial(void* params);
 void vTaskCreateWeatherInfo(void* p);
-void vTaskReadGPS(void* params);
+void vTaskCreateXiaoXiaoMengSerialListener(void* p);
 void lockBike(AsyncWebServerRequest* request , JsonVariant& json);
 void webConfigureWiFi(AsyncWebServerRequest* request , JsonVariant& json);
 void configureWeather(AsyncWebServerRequest* request , JsonVariant& json);
