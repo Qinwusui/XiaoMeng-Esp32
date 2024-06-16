@@ -289,15 +289,15 @@ void vTaskCreateServer(void* param) {
 
 //连接WiFi任务
 void vTaskConnectWifi(void* param) {
-    String* content = getWifiConfig();
+    String content = getWifiConfig();
     if (content == NULL) {
         createAPTask();
         vTaskDelete(NULL);
         return;
     }
-    Serial.println(*content);
+    Serial.println(content);
     DynamicJsonDocument config(200);
-    deserializeJson(config , *content);
+    deserializeJson(config , content);
     String ssid = (config) ["ssid"].as<String>();
     String pwd = (config) ["pwd"].as<String>();
     Serial.printf("正在连接到%s\n" , ssid);
@@ -310,6 +310,7 @@ void vTaskConnectWifi(void* param) {
     }
 reload:
     {
+        ssid = (config) ["ssid"].as<String>();
         int i = WiFi.scanComplete();
         for (int j = 0; j < i; j++) {
             Serial.println(WiFi.SSID(j) + ":" + WiFi.RSSI(j));
@@ -366,7 +367,7 @@ void vTaskCreateWiFiAP(void* p) {
     IPAddress gateWay = IPAddress(192 , 168 , 1 , 1);
     IPAddress subNet = IPAddress(255 , 255 , 255 , 0);
     WiFi.softAPConfig(localIp , gateWay , subNet);
-    WiFi.softAP("wusui_Ya" , "Qinsansui233..." , 12 , 0);
+    WiFi.softAP("wusui_Ya" , "qinsansui233" , 12 , 0);
     vTaskDelete(NULL);
 }
 
@@ -527,19 +528,18 @@ void configureWeather(AsyncWebServerRequest* request , JsonVariant& json) {
 
 }
 //获取WiFi配置
-String* getWifiConfig() {
+String getWifiConfig() {
     File f = SPIFFS.open(wifiPath , "r");
     if (!f) {
         Serial.println("获取WiFi配置失败，将启动热点并开启服务器进行配网操作");
         f.close();
-        return NULL;
+        return "";
     }
-    String* content = new String();
-    *content = f.readString();
+    String content = f.readString();
     f.close();
-    if (content->isEmpty()) {
+    if (content.isEmpty()) {
         Serial.println("WiFi配置为空");
-        return NULL;
+        return "";
     }
     return content;
 }

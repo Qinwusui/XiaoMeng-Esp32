@@ -64,7 +64,7 @@ void configureWeather(AsyncWebServerRequest* request , JsonVariant& json);
 void onEvent(AsyncWebSocket* server , AsyncWebSocketClient* client , AwsEventType type ,
     void* arg , uint8_t* data , size_t len);
 void saveWiFiConfig(String content);
-String* getWifiConfig();
+String getWifiConfig();
 String* getWeatherConfig();
 void saveWeatherConfig(String content);
 void initWeather(String key , String location);
