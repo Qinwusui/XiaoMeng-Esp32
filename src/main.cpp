@@ -10,14 +10,14 @@ TaskHandle_t initScreenHandler = NULL;
 TaskHandle_t initWeatherHandler = NULL;
 TaskHandle_t readGPSHandler = NULL;
 TaskHandle_t readXiaoXiaoMengSerialHandler = NULL;
+TaskHandle_t createWsClientHandler = NULL;
 AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP , "ntp.ntsc.ac.cn"); // NTP客户端
-HardwareSerial xxm(1);
+HardwareSerial xxm(2);
+WebSocketsClient wsClient;
 void setup() {
     Serial.begin(115200);
-    xxm.begin(9600 , SERIAL_8N1 , 17 , 18);
 
     Serial.flush();
     Serial.flush();
@@ -37,13 +37,42 @@ void setup() {
     createAPTask();
     createServerTask();
     createXiaoXiaoMengSerialTask();
+
+}
+
+void createWsClientTask() {
+    if (xTaskCreate(
+        vTaskCreateWsClientTask ,
+        "vTaskCreateWsClientTask" ,
+        5120 ,
+        NULL ,
+        1 ,
+        &createWsClientHandler
+    ) != pdPASS) {
+        Serial.println("创建小小萌串口监听失败");
+    }
+}
+void vTaskCreateWsClientTask(void* p) {
+    wsClient.begin("192.168.123.12" , 3456 , "/ws");
+    wsClient.enableHeartbeat(1000 , 2000 , 50);
+    wsClient.setAuthorization("wusui" , "Qinsansui233...");
+    wsClient.setReconnectInterval(2000);
+    String s = "Device: " + String((char*) ESP.getChipModel());
+    wsClient.setExtraHeaders(s.c_str());
+
+    wsClient.onEvent(onEvent);
+    Serial.println("已连接Ws");
+    while (1) {
+        wsClient.loop();
+    }
+    vTaskDelete(NULL);
 }
 //小小萌串口监听
 void createXiaoXiaoMengSerialTask() {
     if (xTaskCreate(
         vTaskCreateXiaoXiaoMengSerialListener ,
         "createXiaoXiaoMengSerialTask" ,
-        2048 ,
+        20480 ,
         NULL ,
         1 ,
         &readXiaoXiaoMengSerialHandler
@@ -55,15 +84,44 @@ void createXiaoXiaoMengSerialTask() {
 //小小萌串口监听
 void vTaskCreateXiaoXiaoMengSerialListener(void* p) {
     Serial.println("启动小小萌串口监听");
+    xxm.begin(9600 , SERIAL_8N1 , 16 , 17);
     while (1) {
-        if (xxm.available()) {
-            String s = xxm.readStringUntil('\n');
-            Serial.println(s);
+        if (xxm.available() > 0) {
+            String   s = xxm.readStringUntil('\n');
+            s.trim();
+            commandHandler(s);
         }
-
-
     }
     vTaskDelete(NULL);
+}
+//串口指令处理
+void commandHandler(String instructions) {
+    // if (instructions == "openLight") {
+    //     xxm.print("light_Opened");
+    // }
+    // if (instructions == "closeLight") {
+    //     xxm.print("light_Closed");
+    // }
+    // if (instructions == "openConditioner") {
+    //     xxm.print("conditioner_Opened");
+    // }
+    // if (instructions == "closeConditioner") {
+    //     xxm.print("conditioner_Closed");
+    // }
+    // Serial.println(instructions);
+    // xxm.flush();
+    pinMode(12 , OUTPUT);
+
+    if (instructions == "openLight") {
+        digitalWrite(12 , HIGH);
+        wsClient.sendTXT("isNoReply:light_Opened");
+    }
+    if (instructions == "closeLight") {
+        wsClient.sendTXT("isNoReply:light_Closed");
+        digitalWrite(12 , LOW);
+    }
+
+
 }
 //创建WiFi状态监听任务
 void createWiFiStateTask() {
@@ -182,9 +240,8 @@ void vTaskCreateServer(void* param) {
     Serial.println("正在创建web服务器");
 
     AsyncCallbackJsonWebHandler* wifiConfigureHandler = new AsyncCallbackJsonWebHandler("/wifi/submit" , webConfigureWiFi);
-    AsyncCallbackJsonWebHandler* lockHandler = new AsyncCallbackJsonWebHandler("/bike/lock" , lockBike);
     AsyncCallbackJsonWebHandler* weatcherHandler = new AsyncCallbackJsonWebHandler("/weather/submit" , configureWeather);
-    ws.onEvent(onEvent);
+
     //主页
     server.on("/" , [] (AsyncWebServerRequest* request) {
         request->send(SPIFFS , "/web/index.html" , "text/html");
@@ -278,10 +335,8 @@ void vTaskCreateServer(void* param) {
         response->addHeader("Content-Encoding" , "gzip");
         request->send(response);
         });
-    server.addHandler(lockHandler);
     server.addHandler(wifiConfigureHandler);
     server.addHandler(weatcherHandler);
-    server.addHandler(&ws);
     server.begin();
 
     vTaskDelete(NULL);
@@ -344,6 +399,7 @@ hasSSID:
         createWiFiStateTask();
         createTimeUpdateTask();
         createGetWeatherTask();
+        createWsClientTask();
         vTaskDelete(NULL);
 
     }
@@ -351,12 +407,14 @@ hasSSID:
 }
 
 //Ws事件处理
-void onEvent(AsyncWebSocket* server , AsyncWebSocketClient* client , AwsEventType type , void* arg , uint8_t* data , size_t len) {
+void onEvent(WStype_t type , uint8_t* payload , size_t length) {
+    String s = (char*) payload;
+    s.trim();
     switch (type) {
-    case WS_CONNECTED:
-    Serial.printf("客户端%s:%u已连接\n" , client->remoteIP().toString() , client->remotePort());
+    case WStype_TEXT:
+    Serial.printf("收到消息:%s\n" , payload);
+    commandHandler(s);
     break;
-
     default:
     break;
     }
@@ -484,25 +542,6 @@ void webConfigureWiFi(AsyncWebServerRequest* request , JsonVariant& json) {
     request->send(200 , "application/json" , *respStr);
     delete respJson;
     delete respStr;
-}
-void lockBike(AsyncWebServerRequest* request , JsonVariant& json) {
-    DynamicJsonDocument jsonObj = json.as<JsonObject>();
-    String pwd = jsonObj ["pass"].as<String>();
-    if (pwd != "Qinsansui233...") {
-        request->send(404);
-        return;
-    }
-    bool needLock = jsonObj ["needLock"].as<bool>();
-    Serial.println("needLock" + String(needLock));
-    if (needLock) {
-        // digitalWrite(16 , HIGH);
-        // digitalWrite(16 , HIGH);
-    } else {
-        // digitalWrite(16 , LOW);
-        // digitalWrite(16 , LOW);
-
-    }
-    request->send(200);
 }
 void configureWeather(AsyncWebServerRequest* request , JsonVariant& json) {
     DynamicJsonDocument jsonObj = json.as<JsonObject>();

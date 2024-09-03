@@ -18,6 +18,7 @@
 #include <sys/time.h>
 #include<time.h>
 #include <Wire.h>
+#include <WebSocketsClient.h>
 
 #include <HTTPClient.h>
 
@@ -49,6 +50,7 @@ void createWiFiStateTask();
 void createTimeUpdateTask();
 void createGetWeatherTask();
 void createXiaoXiaoMengSerialTask();
+void createWsClientTask();
 
 void vTaskTimeUpdate(void* p);
 void vTaskConnectWifi(void* param);
@@ -57,14 +59,14 @@ void vTaskCreateServer(void* param);
 void vTaskCreateWiFiStateListener(void* p);
 void vTaskScreenInitial(void* params);
 void vTaskCreateWeatherInfo(void* p);
+void vTaskCreateWsClientTask(void* p);
 void vTaskCreateXiaoXiaoMengSerialListener(void* p);
-void lockBike(AsyncWebServerRequest* request , JsonVariant& json);
 void webConfigureWiFi(AsyncWebServerRequest* request , JsonVariant& json);
 void configureWeather(AsyncWebServerRequest* request , JsonVariant& json);
-void onEvent(AsyncWebSocket* server , AsyncWebSocketClient* client , AwsEventType type ,
-    void* arg , uint8_t* data , size_t len);
-void saveWiFiConfig(String content);
+void onEvent(WStype_t type , uint8_t* payload , size_t length);
 String getWifiConfig();
 String* getWeatherConfig();
 void saveWeatherConfig(String content);
 void initWeather(String key , String location);
+void commandHandler(String instructions);
+void saveWiFiConfig(String content);
