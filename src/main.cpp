@@ -11,11 +11,13 @@ TaskHandle_t initWeatherHandler = NULL;
 TaskHandle_t readGPSHandler = NULL;
 TaskHandle_t readXiaoXiaoMengSerialHandler = NULL;
 TaskHandle_t createWsClientHandler = NULL;
+TaskHandle_t createBLEComboHandler = NULL;
 AsyncWebServer server(80);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP , "ntp.ntsc.ac.cn"); // NTP客户端
 HardwareSerial xxm(2);
 WebSocketsClient wsClient;
+BleKeyboard keyBoard;
 void setup() {
     Serial.begin(115200);
 
@@ -35,11 +37,33 @@ void setup() {
 
     createConnectWiFiTask();
     createAPTask();
-    createServerTask();
-    createXiaoXiaoMengSerialTask();
+    createBLEComboTask();
+
+    //暂不需要
+    // createServerTask();
+    // createXiaoXiaoMengSerialTask();
 
 }
+void createBLEComboTask() {
+    if (xTaskCreate(
+        vTaskCreateBLEComboTask ,
+        "vTaskCreateBLEComboTask" ,
+        4096 ,
+        NULL ,
+        1 ,
+        &createBLEComboHandler
+    ) != pdPASS) {
+        Serial.println("创建蓝牙键鼠任务失败");
+    }
 
+}
+void vTaskCreateBLEComboTask(void* p) {
+    keyBoard.setName("五岁的键盘");
+    keyBoard.begin();
+    Serial.println("蓝牙键盘已开启");
+
+    vTaskDelete(NULL);
+}
 void createWsClientTask() {
     if (xTaskCreate(
         vTaskCreateWsClientTask ,
@@ -53,7 +77,7 @@ void createWsClientTask() {
     }
 }
 void vTaskCreateWsClientTask(void* p) {
-    wsClient.begin("192.168.123.12" , 3456 , "/ws");
+    wsClient.begin("192.168.123.8" , 3456 , "/ws");
     wsClient.enableHeartbeat(1000 , 2000 , 50);
     wsClient.setAuthorization("wusui" , "Qinsansui233...");
     wsClient.setReconnectInterval(2000);
@@ -120,6 +144,33 @@ void commandHandler(String instructions) {
         wsClient.sendTXT("isNoReply:light_Closed");
         digitalWrite(12 , LOW);
     }
+    if (instructions == "lock_PC") {
+        if (keyBoard.isConnected()) {
+            keyBoard.press(KEY_LEFT_GUI);
+            keyBoard.press('l');
+            delay(100);
+            keyBoard.releaseAll();
+            Serial.println("锁定电脑");
+            wsClient.sendTXT("isNoReply:pc_Locked");
+        }
+
+    }
+    if (instructions == "unlock_PC") {
+        if (keyBoard.isConnected()) {
+            keyBoard.press(KEY_BACKSPACE);
+            vTaskDelay(1500 / portTICK_PERIOD_MS);
+            keyBoard.print("Qinsansui233...");
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            keyBoard.press(KEY_RETURN);
+            keyBoard.releaseAll();
+            Serial.println("解锁电脑");
+            wsClient.sendTXT("isNoReply:pc_Unlocked");
+
+        }
+
+    }
+
+
 
 
 }
@@ -398,10 +449,10 @@ hasSSID:
         Serial.flush();
         createWiFiStateTask();
         createTimeUpdateTask();
-        createGetWeatherTask();
+        // createGetWeatherTask();
         createWsClientTask();
         vTaskDelete(NULL);
-
+        return;
     }
     WiFi.scanNetworks(true);
 }

@@ -23,7 +23,8 @@
 #include <HTTPClient.h>
 
 #include <HardwareSerial.h>
-
+//引入蓝牙键盘鼠标库
+#include <BleKeyboard.h>
 //结构体
 struct WeatherInfo {
     String code;
@@ -51,7 +52,7 @@ void createTimeUpdateTask();
 void createGetWeatherTask();
 void createXiaoXiaoMengSerialTask();
 void createWsClientTask();
-
+void createBLEComboTask();
 void vTaskTimeUpdate(void* p);
 void vTaskConnectWifi(void* param);
 void vTaskCreateWiFiAP(void* p);
@@ -61,6 +62,7 @@ void vTaskScreenInitial(void* params);
 void vTaskCreateWeatherInfo(void* p);
 void vTaskCreateWsClientTask(void* p);
 void vTaskCreateXiaoXiaoMengSerialListener(void* p);
+void vTaskCreateBLEComboTask(void* p);
 void webConfigureWiFi(AsyncWebServerRequest* request , JsonVariant& json);
 void configureWeather(AsyncWebServerRequest* request , JsonVariant& json);
 void onEvent(WStype_t type , uint8_t* payload , size_t length);
