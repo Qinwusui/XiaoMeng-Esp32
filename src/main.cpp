@@ -77,7 +77,7 @@ void createWsClientTask() {
     }
 }
 void vTaskCreateWsClientTask(void* p) {
-    wsClient.begin("192.168.123.8" , 3456 , "/ws");
+    wsClient.begin("xiaoxiaomeng.liusui.xyz" , 8080 , "/ws");
     wsClient.enableHeartbeat(1000 , 2000 , 50);
     wsClient.setAuthorization("wusui" , "Qinsansui233...");
     wsClient.setReconnectInterval(2000);
